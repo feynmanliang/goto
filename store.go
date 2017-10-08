@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -13,14 +15,15 @@ type URLStore struct {
 	mu   sync.RWMutex
 }
 
+// Gets the LongURL for a given ShortURL, or "" if not found
 func (s *URLStore) Get(key ShortURL) LongURL {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	url := s.urls[key]
-	return url
+	return s.urls[key]
 }
 
-func (s *URLStore) Set(key, url string) bool {
+// Adds a new mapping, succeeding only if the ShortURL doesn't already exist
+func (s *URLStore) Set(key ShortURL, url LongURL) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, present := s.urls[key]
@@ -29,4 +32,30 @@ func (s *URLStore) Set(key, url string) bool {
 	}
 	s.urls[key] = url
 	return true
+}
+
+// Factory method for creating a URLStore
+func NewURLStore() *URLStore {
+	return &URLStore{urls: make(map[ShortURL]LongURL)}
+}
+
+func (s *URLStore) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.urls)
+}
+
+func (s *URLStore) Put(url LongURL) ShortURL {
+	for {
+		key := genKey(s.Count())
+		if s.Set(key, url) {
+			return key
+		}
+	}
+	// shouldn't get here
+	return ""
+}
+
+func genKey(n int) ShortURL {
+	return ShortURL(fmt.Sprint(md5.Sum([]byte{byte(n)}))[:6])
 }
