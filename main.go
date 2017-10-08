@@ -24,7 +24,6 @@ func main() {
 	} else { // we are the master
 		store = NewURLStore(*dataFile)
 	}
-	store = NewURLStore(*dataFile)
 	if *rpcEnabled {
 		rpc.RegisterName("Store", store)
 		rpc.HandleHTTP()
