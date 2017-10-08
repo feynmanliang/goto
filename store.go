@@ -51,7 +51,7 @@ func NewURLStore(filename string) *URLStore {
 		save: make(chan record, saveQueueLength),
 		urls: make(map[ShortURL]LongURL),
 	}
-	if err := s.load(); err != nil {
+	if err := s.load(filename); err != nil {
 		log.Println("Error loading data in URLStore:", err)
 	}
 	go s.saveLoop(filename)
@@ -81,12 +81,12 @@ func genKey(n int) ShortURL {
 	return ShortURL(hex.EncodeToString(hasher.Sum(nil))[:6])
 }
 
-func (s *URLStore) load() error {
-	if _, err := s.file.Seek(0, 0); err != nil {
+func (s *URLStore) load(filename string) error {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if _, err := file.Seek(0, 0); err != nil {
 		return err
 	}
-	d := gob.NewDecoder(s.file)
-	var err error
+	d := gob.NewDecoder(file)
 	for err == nil {
 		var r record
 		if err = d.Decode(&r); err == nil {
