@@ -2,8 +2,8 @@ package main
 
 import (
 	"crypto/md5"
+	"encoding/hex"
 	"fmt"
-	"strings"
 	"sync"
 )
 
@@ -57,5 +57,7 @@ func (s *URLStore) Put(url LongURL) ShortURL {
 }
 
 func genKey(n int) ShortURL {
-	return ShortURL(fmt.Sprint(md5.Sum([]byte{byte(n)}))[:6])
+	hasher := md5.New()
+	hasher.Write([]byte{byte(n)})
+	return ShortURL(hex.EncodeToString(hasher.Sum(nil))[:6])
 }
