@@ -10,6 +10,8 @@ import (
 	"sync"
 )
 
+const saveQueueLength = 1000
+
 type ShortURL string
 type LongURL string
 
@@ -21,7 +23,7 @@ type record struct {
 type URLStore struct {
 	urls map[ShortURL]LongURL
 	mu   sync.RWMutex
-	file *os.File
+	save chan record
 }
 
 // Gets the LongURL for a given ShortURL, or "" if not found
@@ -45,15 +47,14 @@ func (s *URLStore) Set(key ShortURL, url LongURL) bool {
 
 // Factory method for creating a URLStore
 func NewURLStore(filename string) *URLStore {
-	s := &URLStore{urls: make(map[ShortURL]LongURL)}
-	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		log.Fatal("URLStore:", err)
+	s := &URLStore{
+		save: make(chan record, saveQueueLength),
+		urls: make(map[ShortURL]LongURL),
 	}
-	s.file = f
 	if err := s.load(); err != nil {
 		log.Println("Error loading data in URLStore:", err)
 	}
+	go s.saveLoop(filename)
 	return s
 }
 
@@ -67,9 +68,7 @@ func (s *URLStore) Put(url LongURL) ShortURL {
 	for {
 		key := genKey(s.Count())
 		if s.Set(key, url) {
-			if err := s.save(key, url); err != nil {
-				log.Println("Error saving to URLStore:", err)
-			}
+			s.save <- record{key, url}
 			return key
 		}
 	}
@@ -80,11 +79,6 @@ func genKey(n int) ShortURL {
 	hasher := md5.New()
 	hasher.Write([]byte{byte(n)})
 	return ShortURL(hex.EncodeToString(hasher.Sum(nil))[:6])
-}
-
-func (s *URLStore) save(key ShortURL, url LongURL) error {
-	e := gob.NewEncoder(s.file)
-	return e.Encode(record{key, url})
 }
 
 func (s *URLStore) load() error {
@@ -103,4 +97,19 @@ func (s *URLStore) load() error {
 		return nil
 	}
 	return err
+}
+
+func (s *URLStore) saveLoop(filename string) {
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal("URLStore:", err)
+	}
+	defer f.Close()
+	e := gob.NewEncoder(f)
+	for {
+		r := <-s.save
+		if err := e.Encode(r); err != nil {
+			log.Println("URLStore:", err)
+		}
+	}
 }
