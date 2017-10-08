@@ -2,8 +2,8 @@ package main
 
 import (
 	"crypto/md5"
-	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log"
 	"os"
@@ -86,7 +86,7 @@ func (s *URLStore) load(filename string) error {
 	if _, err := file.Seek(0, 0); err != nil {
 		return err
 	}
-	d := gob.NewDecoder(file)
+	d := json.NewDecoder(file)
 	for err == nil {
 		var r record
 		if err = d.Decode(&r); err == nil {
@@ -105,7 +105,7 @@ func (s *URLStore) saveLoop(filename string) {
 		log.Fatal("URLStore:", err)
 	}
 	defer f.Close()
-	e := gob.NewEncoder(f)
+	e := json.NewEncoder(f)
 	for {
 		r := <-s.save
 		if err := e.Encode(r); err != nil {
