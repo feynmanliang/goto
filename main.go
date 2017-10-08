@@ -1,12 +1,11 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"net/http"
 )
 
-var store *URLStore = NewURLStore()
+var store *URLStore = NewURLStore("store.gob")
 
 func main() {
 	http.HandleFunc("/", Redirect)
